@@ -1,0 +1,678 @@
+<!doctype html>
+<html>
+<head>
+	<title>Лабораторные по компьютерной графике</title>
+	<meta charset="UTF-8">
+	<script src = "drawer.js"></script>
+</head>
+<body>
+	<h1>Лабараторная 1</h1>
+	<p>Рисование линий и окружностей</p>
+	<p>Нажатие левой кнопки мыши - начинает рисование, при отпускании фигура сохраняется в буффере</p>
+	<center><canvas id="bCanvas" width="400" height="400" style="border:2px solid #000000;">
+		<script>
+		(function() {
+			let canvas = document.getElementById("bCanvas");	
+			let drawer = new Drawer(canvas);
+			drawer.color = '#000000';
+
+			function createMouseEvent()
+			{
+				let xD = null, yD = null;
+				let isDown = false;
+				let lines = [];
+				function addLine(x0, y0, x1, y1)
+				{
+					lines.push([x0,y0,x1,y1]);
+				}
+				function drawLines()
+				{
+					for (let i = 0; i < lines.length; ++i)
+					{
+						let line = lines[i];
+						drawer.line2(line[0], line[1], line[2], line[3]);
+					}
+				}
+				function move()
+				{
+					if (!isDown)
+						return;
+					xM = event.offsetX;
+					yM = event.offsetY;
+					drawer.line2(xD,yD,xM,yM);
+					drawLines();
+					drawer.redraw();
+				}
+				function down()
+				{
+					if (event.button != 0)
+						return;
+					xD = event.offsetX;
+					yD = event.offsetY;
+					isDown = true;
+				}
+				function up()
+				{
+					if (event.button != 0)
+						return;
+					isDown = false
+					let xU = event.offsetX;
+					let yU = event.offsetY;
+					addLine(xD,yD,xU,yU);
+					drawLines();
+					drawer.redraw();
+				}
+				return { onDown: down, onUp: up, onMove: move };
+			}
+			let mouseEvent = createMouseEvent();
+			canvas.addEventListener("mousedown", mouseEvent.onDown);
+			canvas.addEventListener("mouseup", mouseEvent.onUp);
+			canvas.addEventListener("mousemove", mouseEvent.onMove);
+		})();
+		</script>
+	</canvas>
+	<canvas id="cCanvas" width="400" height="400" style="border:2px solid #000000;">
+		<script>
+		(function() {
+			let canvas = document.getElementById("cCanvas");
+			let drawer = new Drawer(canvas);
+			drawer.color = '#000000';
+
+			function createMouseEvent()
+			{
+				let xD = null, yD = null;
+				let isDown = false;
+				let circles = [];
+				function addCircle(x0, y0, R)
+				{
+					circles.push([x0,y0,R]);
+				}
+				function drawCircles()
+				{
+					for (let i = 0; i < circles.length; ++i)
+					{
+						let circle = circles[i];
+						drawer.circle2(circle[0], circle[1], circle[2]);
+					}
+				}
+				function move()
+				{
+					if (!isDown)
+						return;
+					let xM = event.offsetX;
+					let yM = event.offsetY;
+					let R = Drawer.evklidR(xD,yD,xM,yM);
+					drawer.circle2(xD,yD,R);
+					drawCircles();
+					drawer.redraw();
+				}
+				function down()
+				{
+					if (event.button != 0)
+						return;
+					xD = event.offsetX;
+					yD = event.offsetY;
+					isDown = true;
+				}
+				function up()
+				{
+					if (event.button != 0)
+						return;
+					isDown = false
+					let xU = event.offsetX;
+					let yU = event.offsetY;
+					let R = Drawer.evklidR(xD,yD,xU,yU);
+					addCircle(xD,yD, R);
+					drawCircles();
+					drawer.redraw();
+				}
+				return { onDown: down, onUp: up, onMove: move };
+			}
+
+			mouseEvent = createMouseEvent();
+			canvas.addEventListener("mousedown", mouseEvent.onDown);
+			canvas.addEventListener("mouseup", mouseEvent.onUp);
+			canvas.addEventListener("mousemove", mouseEvent.onMove);
+		})();
+		</script>
+	</canvas></center>
+	<hr>
+	<br>
+	<h1>Лабораторная 2.1</h1>
+	<p>Закраска многоугольника</p>
+	<p>Нажатие левой кнопки мыши - начинает рисование, двойной клик - закрасит фигуру</p> 
+	<center><canvas id="lab2Canvas" width="400" height="400" style="border:2px solid #000000;">
+		<script>
+		(function() {
+			let canvas = document.getElementById("lab2Canvas");	
+			let drawer = new Drawer(canvas);
+			drawer.fillColor = "#FF0000";
+
+			function createMouseEvent()
+			{
+				let polyline = [];
+				function move()
+				{
+					if (polyline.length == 0)
+						return;
+					let pNew = new Drawer.Point(event.offsetX, event.offsetY);
+					let pLast = polyline[polyline.length-1];
+					drawer.polyline(polyline);
+					drawer.line(pLast, pNew);
+					drawer.redraw();
+				}
+				function down()
+				{
+					if (event.button != 0)
+						return;
+					let pNew = new Drawer.Point(event.offsetX, event.offsetY);
+					polyline.push(pNew);
+				}
+				function doubleClick()
+				{
+					let pNew = new Drawer.Point(event.offsetX, event.offsetY);
+					polyline.push(pNew);
+
+					drawer.polygon(polyline);
+					drawer.redraw();
+					
+					polyline = [];
+				}
+				return { onDown: down, onMove: move, onDClick: doubleClick};
+			}
+			let mouseEvent = createMouseEvent();
+			canvas.addEventListener("mousedown", mouseEvent.onDown);
+			canvas.addEventListener("mousemove", mouseEvent.onMove);
+			canvas.addEventListener("dblclick", mouseEvent.onDClick);
+		})();
+		</script>
+	</canvas></center>
+	<hr>
+	<br>
+	<h1>Лабораторная 2.2</h1>
+	<p>Закраска многоугольника</p>
+	<p>Нажатие левой кнопки мыши - начинает рисование, двойной клик - закрасит фигуру</p> 
+	<center>
+	<table>
+	<tr>
+		<td>
+		<ul>
+			<li><button id="lab22rects" style="width:130px">Прямоугольник</button></li>
+			<li><button id="lab22circle" style="width:130px">Окружность</button></li>
+			<li><button id="lab22fill" style="width:130px">Залить</button></li>
+		</ul>
+		</td>
+
+		<td>
+		<canvas id="lab22Canvas" width="400" height="400" style="border:2px solid #000000;">
+			<script>
+			(function() {
+				let canvas = document.getElementById("lab22Canvas");	
+				let butSquare = document.getElementById("lab22rects");
+				let butCircle = document.getElementById("lab22circle");
+				let butFill = document.getElementById("lab22fill");
+
+				let drawer = new Drawer(canvas);
+
+				let rects = [];
+				let circles = [];
+				let currentListeners = null
+				function addListener(up, down, move)
+				{
+					function removeListener()
+					{
+						if (currentListeners === null)
+							return;
+						canvas.removeEventListener("mouseup", currentListeners.up);
+						canvas.removeEventListener("mousedown", currentListeners.down);
+						canvas.removeEventListener("mousemove", currentListeners.move);
+					}
+					removeListener();
+					currentListeners = {up: up, down: down, move: move};
+					canvas.addEventListener("mousedown", down);
+					canvas.addEventListener("mouseup", up);
+					canvas.addEventListener("mousemove", move);
+				}
+				function pushAll()
+				{
+					for (let i = 0; i < rects.length; ++i)
+						drawer.rect(rects[i]);
+					for (let i = 0; i < circles.length; ++i)
+						drawer.circle(circles[i]);
+				}
+	
+				function setSquare()
+				{
+					let pD = new Drawer.Point(0, 0);
+					let isDown = false;
+					drawer.fillColor = "TRANSPARENT";
+
+					function down()
+					{
+						if (event.button != 0)
+								return;
+						pD = new Drawer.Point(event.offsetX, event.offsetY);
+						isDown = true;
+					}
+					function move()
+					{
+						if (!isDown)
+							return;
+						let pM = new Drawer.Point(event.offsetX, event.offsetY);
+
+						pushAll();
+						drawer.rect(new Drawer.Rect(pD, pM));
+						drawer.redraw();
+					}
+					function up()
+					{
+						if (event.button != 0)
+							return;
+						isDown = false
+
+						let pU = new Drawer.Point(event.offsetX, event.offsetY);
+						rects.push(new Drawer.Rect(pD, pU));
+						pushAll();
+						drawer.redraw();
+					}
+					addListener(up, down, move);
+				}
+				function setCircle()
+				{
+					let pD = new Drawer.Point(0, 0);
+					let isDown = false;
+					drawer.fillColor = "TRANSPARENT";
+
+					function down()
+					{
+						if (event.button != 0)
+								return;
+						pD = new Drawer.Point(event.offsetX, event.offsetY);
+						isDown = true;
+					}
+					function move()
+					{
+						if (!isDown)
+							return;
+						let pM = new Drawer.Point(event.offsetX, event.offsetY);
+						let R = Drawer.evklidR(pD.x, pD.y, pM.x, pM.y);
+						pushAll();
+						drawer.circle(new Drawer.Circle(pD, R));
+						drawer.redraw();
+					}
+					function up()
+					{
+						if (event.button != 0)
+							return;
+						isDown = false
+
+						let pU = new Drawer.Point(event.offsetX, event.offsetY);
+						let R = Drawer.evklidR(pD.x, pD.y, pU.x, pU.y);
+						circles.push(new Drawer.Circle(pD, R));
+						pushAll();
+						drawer.redraw();
+					}
+					addListener(up, down, move);
+				}
+				function setFill()
+				{
+					drawer.fillColor = "#FF0000";
+					function down()
+					{
+						if (event.button != 0)
+								return;
+						pD = new Drawer.Point(event.offsetX, event.offsetY);
+						drawer.fillRegion(pD);
+					}
+					addListener(function(){}, down, function(){});
+
+					butSquare.addEventListener("click", reset);
+					butCircle.addEventListener("click", reset);
+				}
+				function reset()
+				{
+					drawer.clear();
+					circles = [];
+					rects = [];
+					butSquare.removeEventListener("click", reset);
+					butCircle.removeEventListener("click", reset);
+				}
+
+				butSquare.addEventListener("click", setSquare);
+				butCircle.addEventListener("click", setCircle);
+				butFill.addEventListener("click", setFill);
+			})();
+			</script>
+		</canvas>
+		</td>
+	</tr>
+	</table>
+	</center>
+	<hr>
+	<br>
+	<h1>Лабораторная 3</h1>
+	<p>Кривая Безье.</p>
+	<p>Нажатие левой кнопки мыши - добавляют точку. Точки можно двигать.</p> 
+	<button id="lab3Clear" style="width:130px">Очистить</button>
+	<center><canvas id="lab3Canvas" width="400" height="400" style="border:2px solid #000000;">
+		<script>
+		(function() {
+			let canvas = document.getElementById("lab3Canvas");	
+			let buttonClear = document.getElementById("lab3Clear");
+			let drawer = new Drawer(canvas);
+
+			let rects = [];
+			let vertices = [];
+			
+			function isVertexInRect(point, rect)
+			{
+				if ((point.x > rect.xl) && (point.x < rect.xr) && (point.y > rect.yt) && (point.y < rect.yb))
+					return true;
+				return false;
+			}
+			function getIndexOuterRect(point)
+			{
+				for (let i = 0; i < rects.length; ++i)
+					if (isVertexInRect(point, rects[i]))
+						return i;
+				return null;
+			}
+			function newRect(center)
+			{
+				let size = 5;
+				let p1 = new Drawer.Point(center.x - size, center.y - size);
+				let p2 = new Drawer.Point(center.x + size, center.y + size);
+				return new Drawer.Rect(p1, p2);
+			}
+			function addRect(center)
+			{
+				rects.push(newRect(center));
+				vertices.push(center);
+			}
+			function changeRect(i, center)
+			{
+				rects[i] = newRect(center);
+				vertices[i] = center;
+			}
+			function redraw()
+			{
+
+				drawer.color = "#FF0000";
+				for (let i = 0; i < rects.length; ++i)
+					drawer.rect(rects[i]);
+
+				drawer.color = "#00FF00";
+				drawer.polyline(vertices);
+
+				drawer.color = "#000000";
+				drawer.bezier(vertices);
+
+
+				drawer.redraw();
+			}
+			function clear()
+			{
+				rects = [];
+				vertices = [];
+				drawer.clear();
+			}
+
+			function setMouseEvent()
+			{
+				let indexGrab = null;
+				function move()
+				{
+					if (indexGrab === null)
+						return;
+					let p = new Drawer.Point(event.offsetX, event.offsetY);
+					changeRect(indexGrab, p);
+					redraw();
+				}
+				function down()
+				{
+					if (event.button != 0)
+						return;
+
+					let p = new Drawer.Point(event.offsetX, event.offsetY);
+					indexGrab = getIndexOuterRect(p);
+					if (indexGrab === null)
+					{
+						addRect(p);
+						redraw();
+						return;
+					}
+				}
+				function up()
+				{
+					indexGrab = null;
+				}
+				
+				canvas.addEventListener("mousedown", down);
+				canvas.addEventListener("mousemove", move);
+				canvas.addEventListener("mouseup", up);
+			}
+
+			setMouseEvent();
+			buttonClear.addEventListener("click", clear);
+		})();
+		</script>
+	</canvas></center>
+	<hr>
+	<br>
+	<h1>Лабораторная 4</h1>
+	<p>Отсечение отрезков.</p>
+	<p>Рамку можно двигать.</p> 
+	<button id="lab4Draw" style="width:130px">Перерисовать</button>
+	<input id="lab4Slider" type="range" min="1" max="200" step="1" value="30"/>
+	<center><canvas id="lab4Canvas" width="400" height="400" style="border:2px solid #000000;">
+		<script>
+		(function() {
+			let canvas = document.getElementById("lab4Canvas");	
+			let buttonRedraw = document.getElementById("lab4Draw");
+			let slider = document.getElementById("lab4Slider");
+			let drawer = new Drawer(canvas);
+
+			let lines = [];
+			let gapRect;
+			setRectPos(new Drawer.Point(170, 170));
+			generateLines()
+			redraw();
+			
+			function randInt(min, max) 
+			{
+    				var rand = min + Math.random() * (max + 1 - min);
+    				rand = Math.floor(rand);
+    				return rand;
+			}
+			function generateLines()
+			{
+				lines = [];
+				let w = canvas.width;
+				let h = canvas.height;
+				let n = 40;
+				
+				for (let i = 0; i < 2*n; ++i)
+					lines.push(new Drawer.Point(randInt(0, w), randInt(0, h)));
+			}
+			function isPointInRect(point, rect)
+			{
+				if ((point.x > rect.xl) && (point.x < rect.xr) && (point.y > rect.yt) && (point.y < rect.yb))
+					return true;
+				return false;
+			}
+			function setRectPos(p)
+			{
+				let s = Number(slider.value);
+				gapRect = new Drawer.Rect(p, new Drawer.Point(p.x+s, p.y+s));
+				drawer.clipRect = gapRect;
+			}
+			function redraw()
+			{
+				drawer.color = "#000000";
+				for (let i = 0; i < lines.length; i+=2)
+					drawer.line(lines[i], lines[i+1]);
+
+				drawer.color = "#FF0000";
+				drawer.rect(gapRect);
+
+				drawer.redraw();
+			}
+			function resizeRect()
+			{
+				let prevS = gapRect.xr - gapRect.xl;
+				let currS = Number(slider.value);
+				let ds = Math.round((prevS-currS)/2);
+				setRectPos(new Drawer.Point(gapRect.xl + ds, gapRect.yt + ds));
+				redraw();
+			}
+
+			function setMouseEvent()
+			{
+				let isGrab = false;
+				let dx = 0, dy = 0;
+				function move()
+				{
+					if (isGrab === false)
+						return;
+					let p = new Drawer.Point(event.offsetX + dx, event.offsetY + dy);
+					setRectPos(p);
+					redraw();
+				}
+				function down()
+				{
+					if (event.button != 0)
+						return;
+
+					let p = new Drawer.Point(event.offsetX, event.offsetY);
+					isGrab = isPointInRect(p, gapRect);
+					if (isGrab === true)
+					{
+						dx = gapRect.xl - p.x;
+						dy = gapRect.yt - p.y;
+					}
+				}
+				function up()
+				{
+					isGrab = false;
+				}
+				
+				canvas.addEventListener("mousedown", down);
+				canvas.addEventListener("mousemove", move);
+				canvas.addEventListener("mouseup", up);
+			}
+
+			setMouseEvent();
+			slider.addEventListener("input", resizeRect);
+			buttonRedraw.addEventListener("click", function(){ generateLines(); redraw(); });
+		})();
+		</script>
+	</canvas></center>
+	<hr>
+	<br>
+	<h1>Лабораторная 5</h1>
+	<p>Поворот вокруг оси. Кривая Безье по 3-ём точкам. Затем можно менять ось.</p>
+	<center><canvas id="lab5Canvas" width="400" height="400" style="border:2px solid #000000;">
+		<script>
+		(function() {
+			let canvas = document.getElementById("lab5Canvas");	
+			let drawer = new Drawer(canvas);
+
+			let rects = [];
+			let vertices = [];
+
+			let axis = null;
+			
+			function newRect(center)
+			{
+				let size = 5;
+				let p1 = new Drawer.Point(center.x - size, center.y - size);
+				let p2 = new Drawer.Point(center.x + size, center.y + size);
+				return new Drawer.Rect(p1, p2);
+			}
+			function addRect(center)
+			{
+				rects.push(newRect(center));
+				vertices.push(center);
+			}
+			function changeRect(i, center)
+			{
+				rects[i] = newRect(center);
+				vertices[i] = center;
+			}
+			function redraw()
+			{
+
+				drawer.color = "#FF0000";
+				for (let i = 0; i < rects.length; ++i)
+					drawer.rect(rects[i]);
+
+				drawer.color = "#00FF00";
+				drawer.polyline(vertices);
+
+				drawer.color = "#000000";
+				drawer.bezier(vertices);
+
+
+				drawer.redraw();
+			}
+			function clear()
+			{
+				rects = [];
+				vertices = [];
+				drawer.clear();
+			}
+
+			function setMouseEvent()
+			{
+				let indexGrab = null;
+				function move()
+				{
+				}
+				function down()
+				{
+					if (event.button != 0)
+						return;
+
+					let p = new Drawer.Point(event.offsetX, event.offsetY);
+					if (rects.length == 3)
+					{
+						axis = p;
+						return;
+					}
+					addRect(p);
+					redraw();
+					return;
+				}
+				function up()
+				{
+				}
+				
+				canvas.addEventListener("mousedown", down);
+				canvas.addEventListener("mousemove", move);
+				canvas.addEventListener("mouseup", up);
+			}
+			function rotate()
+			{
+				if (axis === null)
+					return; 
+				let angle = 0.05;
+				let m = Drawer.Matrix.Move(-axis.x, -axis.y, 0);
+				m = Drawer.Matrix.mul(Drawer.Matrix.RotateZ(angle), m);
+				m = Drawer.Matrix.mul(Drawer.Matrix.Move(axis.x, axis.y, 0), m);
+
+				for (let i = 0; i < vertices.length; ++i)
+				{
+					vertices[i] = vertices[i].appTransform(m);
+					changeRect(i, vertices[i]);
+				}
+
+				redraw();
+			}
+
+			setMouseEvent();
+			setInterval(rotate, 30);
+		})();
+		</script>
+	</canvas></center>
+</body>
+</html>
