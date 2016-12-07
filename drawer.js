@@ -30,6 +30,11 @@ class Point {
 		}
 		return newP;
 	}
+	round()
+	{
+		let newP = new Point(Math.round(this.data[0]), Math.round(this.data[1]), Math.round(this.data[2]));
+		return newP;
+	}
 };
 function isArray4Dem(array)
 {
@@ -164,7 +169,7 @@ function findFramingRect(polygon)
 	xMax = xMin = polygon[0].x;
 	yMax = yMin = polygon[0].y;
 
-	for (let i = 1; i < polygon.length - 1; ++i)
+	for (let i = 1; i < polygon.length; ++i)
 	{
 		if (polygon[i].x > xMax)
 			xMax = polygon[i].x;
@@ -340,6 +345,43 @@ function bezierCurve(ctx, points)
 		bresLine(ctx, Math.round(point.x), Math.round(point.y), Math.round(newPoint.x), Math.round(newPoint.y));
 		point = newPoint;
 	}
+}
+function bezierCurve2Lines(points, polylinePoints, dt, start, end)
+{
+	if (polylinePoints === undefined)
+		polylinePoints = [];
+	if (start === undefined)
+		start = 0;
+	if (end === undefined)
+		end = 1;
+	function getPointOnLine(t, x0, y0, z0, x1, y1, z1)
+	{
+		let newX = Math.round((x1 - x0)*t + x0);
+		let newY = Math.round((y1 - y0)*t + y0);
+		let newZ = Math.round((z1 - z0)*t + z0);
+		return new Point(newX, newY, newZ);
+	}
+	function getPointOnCurve(t, points)
+	{
+		if (points.length == 2)
+			return getPointOnLine(t, points[0].x, points[0].y, points[0].z,  points[1].x, points[1].y, points[1].z);
+
+		let newPoints = [];
+		for (let i = 1; i < points.length; ++i)
+			newPoints.push(getPointOnLine(t, points[i-1].x, points[i-1].y, points[i-1].z,  points[i].x, points[i].y, points[i].z));
+
+		return getPointOnCurve(t, newPoints);
+	}
+
+	if (dt === undefined)
+		dt = 0.05;
+	for (let t = start; t <= end; t += dt)
+	{
+		polylinePoints.push(getPointOnCurve(t, points))
+	}
+	if ((end-start)/dt % 1 > 0.0001)
+		polylinePoints.push(getPointOnCurve(end, points))
+	return polylinePoints;
 }
 function clipLineByRect(rect, line)
 {
@@ -644,11 +686,16 @@ class Drawer
 	}
 };
 
+let Misc = { 
+	bezier2Lines: bezierCurve2Lines
+}
+	
 
 Drawer.Point 		= Point;
 Drawer.Rect		= Rect; 
 Drawer.Circle		= Circle; 
 Drawer.Matrix		= Matrix;
+Drawer.Misc 		= Misc;
 window.Drawer 		= Drawer;
 
 })();

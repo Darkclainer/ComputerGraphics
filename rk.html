@@ -1,0 +1,143 @@
+<!doctype html>
+<html>
+<head>
+	<title>Рубежный контроль по компьютерной графике</title>
+	<meta charset="UTF-8">
+	<script src = "drawer.js"></script>
+</head>
+<body>
+	<center><canvas id="Canvas" width="600" height="600" style="border:3px solid #000000;">
+		<script>
+		(function()
+		{
+
+		let canvas = document.getElementById("Canvas");	
+		let drawer = new Drawer(canvas);
+
+		function getRotateMatrix(a)
+		{
+			let m1 = Drawer.Matrix.Move(0, -300, 0);
+			let m2 = Drawer.Matrix.RotateX(a);
+			let m3 = Drawer.Matrix.Move(0, 300, 0);
+			return Drawer.Matrix.mul(m3,Drawer.Matrix.mul(m2,m1));
+		}
+
+		let topCenter 	= new Drawer.Point(300, 100, 0);
+		let midCenter 	= new Drawer.Point(300, 300, 0);
+		let botCenter 	= new Drawer.Point(300, 500, 0);
+		let topR	= 50;
+		let midR	= 120;
+		let nOfSectors	= 5; // on back or fron face
+		let nOfCurves	= nOfSectors+1; // on back or fron face
+		let da 		= Math.PI / nOfSectors;
+		let dt 		= 0.1; // smooth of curve
+		let color1	= "#FF0000";
+		let color2	= "#0000FF";
+		let angleOff 	= 0;
+		let time 	= 0
+		let dTime 	= 0.04
+		let transMatrix = getRotateMatrix(0);
+
+		let backFace    = getPolygons(0, Math.PI, angleOff);
+		let frontFace    = getPolygons(Math.PI, 2*Math.PI, angleOff);
+
+		function roundAllPoints(points)
+		{
+			for (let i = 0; i < points.length; ++i)
+				points[i] = points[i].round();
+		}
+		function getPointCircleXZ(center, a, R)
+		{
+			a += 3*Math.PI / 2;
+			let dx = R*Math.sin(a);
+			let dz = R*Math.cos(a);
+			return new Drawer.Point(center.x + dx, center.y, center.z + dz);
+		}
+		function getPointsOfSectorCurve(a, reverse)
+		{
+			let topP = getPointCircleXZ(topCenter, a, topR);				
+			let midP = getPointCircleXZ(midCenter, a, midR*2);				
+			let botP = getPointCircleXZ(botCenter, a, topR);				
+
+			topP = topP.appTransform(transMatrix);
+			midP = midP.appTransform(transMatrix);
+			botP = botP.appTransform(transMatrix);
+			if (reverse)
+				return [botP, midP, topP];
+			else
+				return [topP, midP, botP];
+		}
+		function getPolygons(angleStart, angleEnd, anglOff)
+		{
+			let polygons = []; // up and down half of sectors
+			let curvePoints = [];
+
+			let invert = false;
+			if (anglOff != 0)
+			{
+				curvePoints.push(getPointsOfSectorCurve(angleStart,invert));
+				invert = (invert ? false : true); // first up down, second down up, third up down ...
+			}
+			for (let a = angleStart + anglOff; a <= angleEnd; a+=da)
+			{
+				curvePoints.push(getPointsOfSectorCurve(a,invert));
+				invert = (invert ? false : true); // first up down, second down up, third up down ...
+			}
+			if (anglOff != 0)
+			{
+				curvePoints.push(getPointsOfSectorCurve(angleEnd,invert));
+				invert = (invert ? false : true); // first up down, second down up, third up down ...
+			}
+			
+			for (let i = 1; i < curvePoints.length; ++i)
+			{
+				let up = [];
+				Drawer.Misc.bezier2Lines(curvePoints[i-1], up, dt, 0, 0.5); // up down
+				Drawer.Misc.bezier2Lines(curvePoints[i]  , up, dt, 0.5, 1); // down up
+
+				let down = [];
+				Drawer.Misc.bezier2Lines(curvePoints[i-1], down, dt, 0.5, 1); // up down
+				Drawer.Misc.bezier2Lines(curvePoints[i]  , down, dt, 0, 0.5); // down up
+
+				polygons.push(up);
+				polygons.push(down);
+			}
+			return polygons;
+		}
+		function drawFace(polygons, firstColor, secondColor)
+		{
+			for (let i = 0; i < polygons.length; i+=2)
+			{
+				drawer.fillColor = firstColor;
+				drawer.polygon(polygons[i]);
+
+				drawer.fillColor = secondColor;
+				drawer.polygon(polygons[i+1]);
+			}
+		}
+
+		function update()
+		{
+			angleOff += 0.01;
+			if (angleOff > da)
+			{
+				angleOff -= da;
+				[color1, color2] = [color2, color1];
+			}
+			time += dTime;
+			transMatrix = getRotateMatrix(0.2*Math.sin(time));
+
+			backFace    = getPolygons(0, Math.PI, angleOff);
+			frontFace   = getPolygons(Math.PI, 2*Math.PI, angleOff);
+			drawFace(backFace, color1, color2);
+			drawFace(frontFace, color2, color1);
+			drawer.redraw();
+		}
+
+
+		setInterval(update,35);
+		})()
+		</script>
+	</canvas></center>
+</body>
+</html>
