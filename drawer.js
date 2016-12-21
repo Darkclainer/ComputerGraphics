@@ -35,6 +35,11 @@ class Point {
 		let newP = new Point(Math.round(this.data[0]), Math.round(this.data[1]), Math.round(this.data[2]));
 		return newP;
 	}
+	normalize()
+	{
+		let dist = Math.sqrt(this.data[0]*this.data[0] + this.data[1]*this.data[1] + this.data[2]*this.data[2]);
+		return new Point(this.data[0]/dist, this.data[1]/dist, this.data[2]/dist);
+	}
 };
 function isArray4Dem(array)
 {
@@ -103,19 +108,31 @@ class Matrix {
 		return new Matrix([[1, 0, 0, 0],[0, Math.cos(a), -Math.sin(a), 0], [0, Math.sin(a), Math.cos(a), 0], [0, 0, 0, 1]]);
 	}
 };
-function bresLine(ctx, x0, y0, x1, y1) 
+function drawPoint(ctx, zBuffer, x, y, z)
 {
-	x0 = Math.round(x0);
-	y0 = Math.round(y0);
-	x1 = Math.round(x1);
-	y1 = Math.round(y1);
+	if (zBuffer.setPoint(x, y, z))
+		ctx.fillRect(x, y, 1, 1);
+}
+function bresLine(ctx, zBuffer, p0, p1)
+{
+	let x0 = p0.x, y0 = p0.y;
+	let x1 = p1.x, y1 = p1.y;
 	let dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
 	let dy = Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1; 
 	let err = (dx>dy ? dx : -dy)/2;
+
+	let z0 = p0.z;
+	let use_x = dx > dy;
+	let dz = p0.z - p1.z;
+	let z;
  
 	while (true) 
 	{
-		ctx.fillRect(x0,y0,1,1);
+		if (use_x)
+			z = z0 + (x1-x0)/dx * dz;
+		else
+			z = z0 + (y1-y0)/dy * dz;
+		drawPoint(ctx, zBuffer, x0, y0, z);
 		if (x0 === x1 && y0 === y1)
 			break;
 	
@@ -183,7 +200,7 @@ function findFramingRect(polygon)
 	}
 	return [xMin, yMin, xMax, yMax];
 }
-function polygonFill(ctx, polygon)
+function polygonFill(ctx, zBuffer, polygon)
 {
 	let rect = findFramingRect(polygon);
 	function isInSegment(c, a, b)
@@ -209,6 +226,11 @@ function polygonFill(ctx, polygon)
 		{
 			let x0 = polygon[i1].x, y0 = polygon[i1].y;
 		       	let x1 = polygon[i2].x, y1 = polygon[i2].y;
+			if (y0 > y1)
+			{
+				[y0, y1] = [y1, y0];
+				[x0, x1] = [x1, x0];
+			}
 			let k = (y1 - y0)/(x1 - x0);
 			let b = null;
 			let type = null;
@@ -220,19 +242,29 @@ function polygonFill(ctx, polygon)
 			}
 			else
 				type = 'x';
-			lines.push({type: type, x0: x0, x1: x1, y0: y0, y1: y1, k: k, b: b});
+			lines.push({type: type, x0: x0, x1: x1, y0: y0, y1: y1, k: k, b: b, z0: polygon[i1].z, z1: polygon[i2].z});
 		}
 		for (let i = 1; i < polygon.length; ++i)
 			pushLine(i, i-1);
 		pushLine(polygon.length-1, 0);
+
+		lines.sort(function(a,b) { if (a.y0 < b.y0) return -1; else if (a.y0 > b.y0) return 1; return 0; });
 		return lines;
 	}
 	function findIntersection(lines, y)
 	{
 		let list = [];
+		while(lines.length>0)
+		{
+			if (lines[lines.length-1].y0 > y)
+				lines.pop();
+			else 
+				break;
+		}
 		for (let i = 0; i < lines.length; ++i)
 		{
 			let line = lines[i];
+			let sy, z;
 			switch(line.type)
 			{
 				case 'y':
@@ -240,7 +272,9 @@ function polygonFill(ctx, polygon)
 				case 'x':
 					if (!isInYBound(y, line.y0, line.y1))
 						continue;
-					list.push({x: line.x0, y: y});
+					sy = (y - line.y1)/(line.y1-line.y0);
+					z = line.z1 + (line.z1-line.z0)*sy;
+					list.push(new Point(line.x0, y, z));
 					break;
 				default:
 					if (!isInYBound(y, line.y0, line.y1))
@@ -248,7 +282,9 @@ function polygonFill(ctx, polygon)
 					let x = Math.round((y - line.b)/line.k);
 					if (!isInSegment(x, line.x0, line.x1))
 						continue;
-					list.push({x: x, y: y});
+					sy = (y - line.y1)/(line.y1-line.y0);
+					z = line.z1 + (line.z1-line.z0)*sy;
+					list.push(new Point(x, y, z));
 					break;
 			}
 		}
@@ -264,17 +300,127 @@ function polygonFill(ctx, polygon)
 		}
 		for (let i = 1; i < list.length; i+=2)
 		{
-			let l = list[i].x - list[i-1].x + 1;
-			if (l <= 0)
-				continue;
-			ctx.fillRect(list[i-1].x, list[i-1].y, l, 1);
+			bresLine(ctx, zBuffer, list[i], list[i-1]);
 		}
 	}
 	
 	let yMin = rect[1];
 	let yMax = rect[3];
 	let lines = getLines(polygon);
-	for (let y = yMin; y <= yMax; ++y)
+	for (let y = yMax; y >= yMin; --y)
+	{
+		let list = findIntersection(lines, y);
+		fillList(list);
+	}
+}
+function polygonFill(ctx, zBuffer, polygon)
+{
+	let rect = findFramingRect(polygon);
+	function isInSegment(c, a, b)
+	{
+		if ((c < a && c < b) || (c > a && c > b))
+			return false;
+		return true;
+	}
+	function isInYBound(y, a, b)
+	{
+		if (a > b)
+			[a, b] = [b, a];
+		if (y < a || y > b)
+			return false;
+		if (y == b)
+			return false;
+		return true;
+	}
+	function getLines(polygon)
+	{
+		let lines = [];
+		function pushLine(i1, i2)
+		{
+			let x0 = polygon[i1].x, y0 = polygon[i1].y;
+		       	let x1 = polygon[i2].x, y1 = polygon[i2].y;
+			if (y0 > y1)
+			{
+				[y0, y1] = [y1, y0];
+				[x0, x1] = [x1, x0];
+			}
+			let k = (y1 - y0)/(x1 - x0);
+			let b = null;
+			let type = null;
+			if (x1 - x0 != 0)
+			{
+				b = y1 - k*x1;
+				if (k == 0)
+					type = 'y';
+			}
+			else
+				type = 'x';
+			lines.push({type: type, x0: x0, x1: x1, y0: y0, y1: y1, k: k, b: b, z0: polygon[i1].z, z1: polygon[i2].z});
+		}
+		for (let i = 1; i < polygon.length; ++i)
+			pushLine(i, i-1);
+		pushLine(polygon.length-1, 0);
+
+		lines.sort(function(a,b) { if (a.y0 < b.y0) return -1; else if (a.y0 > b.y0) return 1; return 0; });
+		return lines;
+	}
+	function findIntersection(lines, y)
+	{
+		let list = [];
+		while(lines.length>0)
+		{
+			if (lines[lines.length-1].y0 > y)
+				lines.pop();
+			else 
+				break;
+		}
+		for (let i = 0; i < lines.length; ++i)
+		{
+			let line = lines[i];
+			let sy, z;
+			switch(line.type)
+			{
+				case 'y':
+					break;
+				case 'x':
+					if (!isInYBound(y, line.y0, line.y1))
+						continue;
+					sy = (y - line.y1)/(line.y1-line.y0);
+					z = line.z1 + (line.z1-line.z0)*sy;
+					list.push(new Point(line.x0, y, z));
+					break;
+				default:
+					if (!isInYBound(y, line.y0, line.y1))
+						continue;
+					let x = Math.round((y - line.b)/line.k);
+					if (!isInSegment(x, line.x0, line.x1))
+						continue;
+					sy = (y - line.y1)/(line.y1-line.y0);
+					z = line.z1 + (line.z1-line.z0)*sy;
+					list.push(new Point(x, y, z));
+					break;
+			}
+		}
+		list.sort(function(a,b) { if(a.x < b.x) return -1; else if (a.x > b.x) return 1; return 0; })
+		return list;
+	}
+	function fillList(list)
+	{
+		if (list.length % 2 != 0)
+		{
+			alert("Wrong list!");
+			return;
+		}
+		for (let i = 1; i < list.length; i+=2)
+		{
+			bresLine(ctx, zBuffer, list[i], list[i-1]);
+		}
+	}
+	
+	let yMin = rect[1];
+	let yMax = rect[3];
+	let lines = getLines(polygon);
+	for (let y = yMax; y >= yMin; --y)
 	{
 		let list = findIntersection(lines, y);
 		fillList(list);
@@ -316,7 +462,7 @@ function fillRegionByPoint(ctx, x, y, w, h)
 		stack.push([x, y-1]);
 	}
 }
-function bezierCurve(ctx, points)
+function bezierCurve(ctx, zBuffer, points)
 {
 	function getPointOnLine(t, x0, y0, z0, x1, y1, z1)
 	{
@@ -342,7 +488,7 @@ function bezierCurve(ctx, points)
 	for (let t = dt; t <= 1; t += dt)
 	{
 		let newPoint = getPointOnCurve(t, points);
-		bresLine(ctx, Math.round(point.x), Math.round(point.y), Math.round(newPoint.x), Math.round(newPoint.y));
+		bresLine(ctx, zBuffer, point.round(), newPoint.round());
 		point = newPoint;
 	}
 }
@@ -466,6 +612,58 @@ function clipLineByRect(rect, line)
 
 	return clipLine(line);
 }
+function hexToRgb(hex) {
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
+}
+function componentToHex(c) {
+    var hex = c.toString(16);
+    return hex.length == 1 ? "0" + hex : hex;
+}
+
+function rgbToHex(r, g, b) {
+    return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+}
+
+function pproduct(p1, p2) //pseudo scalar product
+{
+	return p1.x * p2.y - p1.y * p2.x;
+}
+function getNormal(points)
+{
+	let d1 = new Point(points[2].x - points[0].x,points[2].y - points[0].y, points[2].z - points[0].z);
+	let d2 = new Point(points[2].x - points[1].x,points[2].y - points[1].y, points[2].z - points[1].z);
+	let x = d1.y*d2.z - d1.z*d2.y;
+	let y = d1.z*d2.x - d1.x*d2.z;
+	let z = d1.x*d2.y - d1.y*d2.x;
+	return new Point(x,y,z);
+}
+function dotProduct(p1, p2)
+{
+	return p1.x*p2.x + p1.y*p2.y + p1.z*p2.z;
+}
+function isTriangleCCW(points)
+{
+	let d1 = new Point(points[2].x - points[0].x,points[2].y - points[0].y);
+	let d2 = new Point(points[2].x - points[1].x,points[2].y - points[1].y);
+
+	return pproduct(d1, d2) > 0;
+}
+function getColorWithLight(points, lightV, lightI, color)
+{
+	function bound(c)
+	{
+		return Math.round(c < 0 ? 0 : (c > 255 ? 255 : c));
+	}
+	let surfN = getNormal(points).normalize();
+	let pluColor = dotProduct(lightV, surfN) * lightI;
+	let rgb = hexToRgb(color);
+	return rgbToHex(bound(rgb.r + pluColor), bound(rgb.g+pluColor), bound(rgb.b + pluColor));
+}
 
 /*
  * lines - набор линий. Состоят из массива 0 - первая точка, 1 - последняя, 2 - цвет
@@ -477,6 +675,7 @@ const POLYLINE 		= ENUM_COUNTER++;
 const CIRCLE 		= ENUM_COUNTER++;
 const CIRCLES 		= ENUM_COUNTER++;
 const POLYGON 		= ENUM_COUNTER++;
+const TRIPOLYGON 	= ENUM_COUNTER++;
 const BEZIER_CURVE	= ENUM_COUNTER++;
 
 class Rect {
@@ -507,6 +706,33 @@ class Figure
 		this.fillColor = "TRANSPARENT";
 	}
 };
+class ZBuffer
+{
+	constructor(w, h)
+	{
+		this._data = [];
+		this._w = w;
+		this._h = h;
+		for (let p = 0; p < this._w * this._h - 1; ++p)
+			this._data[p] = 0;
+	}
+	setPoint(x, y, z)
+	{
+	//	return true;
+		let iz =  1/z;
+		if (this._data[y*this._h+x] <= iz)
+		{
+			this._data[y*this._h+x] = iz;
+			return true;
+		}
+		return false;
+	}
+	clear()
+	{
+		for (let p = 0; p < this._w * this._h - 1; ++p)
+			this._data[p] = 0;
+	}
+};
 class Drawer
 {
 	constructor(canvas)
@@ -522,7 +748,12 @@ class Drawer
 
 		this._figures = [];
 		this._clipRect 		= new Rect(new Point(0,0), new Point(canvas.width, canvas.height));
+		
+		this._zBuffer 		= new ZBuffer(canvas.width, canvas.height);
 
+		this._light 		= false;
+		this._lightI		= 1;
+		this._lightDir		= new Point(0, 0, 0);
 	}
 
 	set color(c) 		{this._color = c;}
@@ -536,6 +767,19 @@ class Drawer
 
 	set clipRect(r)		{this._clipRect = r;}
 
+	lightOn()
+	{
+		this._light = true;
+	}
+	lightOff()
+	{
+		this._light = false;
+	}
+	light(p, i)
+	{
+		this._lightI = i;
+		this._lightDir = p.normalize();
+	}
 	line3(x0, y0, z0, x1, y1, z1)
 	{
 		let p1 = new Point(x0, y0, z0);
@@ -581,12 +825,19 @@ class Drawer
 		fig.fillColor = this._fillColor;
 		this._figures.push(fig);
 	}
+	polygon3(p1,p2,p3, culling)
+	{
+		let fig = new Figure(TRIPOLYGON, this._color, [p1, p2, p3]);
+		fig.fillColor = this._fillColor;
+		fig.culling = culling;
+		this._figures.push(fig);
+	}
 	rect(r)
 	{
 		let plt = r.p1;
 		let prb = r.p2;
-		let prt = new Point(prb.x, plt.y);
-		let plb = new Point(plt.x, prb.y);
+		let prt = new Point(prb.x, plt.y, plt.z);
+		let plb = new Point(plt.x, prb.y, prb.z);
 		this.polygon([plt, prt, prb, plb]);	
 	}
 	bezier(points)
@@ -611,14 +862,14 @@ class Drawer
 					if (line === null)
 						break;
 					let p1 = line[0], p2 = line[1];
-					bresLine(this._ctx, p1.x, p1.y, p2.x, p2.y);
+					bresLine(this._ctx, this._zBuffer, p1, p2);
 					break;
 				}
 				case POLYLINE:
 				{
 					let ps = fig.points;
 					for (let i = 1; i < ps.length; ++i)
-						bresLine(this._ctx, ps[i].x, ps[i].y, ps[i-1].x, ps[i-1].y);
+						bresLine(this._ctx, this._zBuffer, ps[i], ps[i-1]);
 					break;
 				}
 				case CIRCLE:
@@ -640,14 +891,43 @@ class Drawer
 					if (fig.fillColor != "TRANSPARENT")
 					{
 						this._ctx.fillStyle = fig.fillColor;
-						polygonFill(this._ctx, ps);
+						polygonFill(this._ctx, this._zBuffer, ps);
 					}
 					this._ctx.fillStyle = fig.color;
 					for (let i = 1; i < ps.length; ++i)
-						bresLine(this._ctx, ps[i].x, ps[i].y, ps[i-1].x, ps[i-1].y);
+						bresLine(this._ctx, this._zBuffer, ps[i], ps[i-1]);
 					let li = ps.length - 1;
-					bresLine(this._ctx, ps[li].x, ps[li].y, ps[0].x, ps[0].y);
+					bresLine(this._ctx, this._zBuffer, ps[li], ps[0]);
 					break;
+				}
+				case TRIPOLYGON:
+				{
+					let ps = fig.points;
+					if (!isTriangleCCW(ps))
+						break;
+
+					if (fig.fillColor != "TRANSPARENT")
+					{
+						if (this._light)
+						{
+							this._ctx.fillStyle = getColorWithLight(ps, this._lightDir, this._lightI, fig.fillColor);
+						}
+						else
+							this._ctx.fillStyle = fig.fillColor;
+
+						polygonFill(this._ctx, this._zBuffer, ps);
+					}
+
+					if (fig.color == "TRANSPARENT")
+						break;
+
+					this._ctx.fillStyle = fig.color;
+					for (let i = 1; i < ps.length; ++i)
+						bresLine(this._ctx, this._zBuffer, ps[i], ps[i-1]);
+					let li = ps.length - 1;
+					bresLine(this._ctx, this._zBuffer, ps[li], ps[0]);
+					break;
+
 				}
 				case BEZIER_CURVE:
 				{
@@ -655,7 +935,7 @@ class Drawer
 
 					if (ps.length < 2)
 						break;
-					bezierCurve(this._ctx, ps);
+					bezierCurve(this._ctx, this._zBuffer, ps);
 					break;
 				}
 				default:
@@ -674,6 +954,7 @@ class Drawer
 		//clear
 		this._ctx.fillStyle = this._clearColor;
 		this._ctx.fillRect(0, 0, this._width, this._height);
+		this._zBuffer.clear();
 	}
 	redraw()
 	{

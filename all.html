@@ -596,7 +596,7 @@
 			}
 			function changeRect(i, center)
 			{
-				rects[i] = newRect(center);
+				rects[i] = newRect(center.round());
 				vertices[i] = center;
 			}
 			function redraw()
@@ -605,12 +605,16 @@
 				drawer.color = "#FF0000";
 				for (let i = 0; i < rects.length; ++i)
 					drawer.rect(rects[i]);
+				
+				let rVert = [];
+				for (let i = 0; i < vertices.length; ++i)
+					rVert[i] = vertices[i].round();
 
 				drawer.color = "#00FF00";
-				drawer.polyline(vertices);
+				drawer.polyline(rVert);
 
 				drawer.color = "#000000";
-				drawer.bezier(vertices);
+				drawer.bezier(rVert);
 
 
 				drawer.redraw();
@@ -671,6 +675,26 @@
 
 			setMouseEvent();
 			setInterval(rotate, 30);
+		})();
+		</script>
+	</canvas></center>
+	<hr>
+	<br>
+	<h1>Лабораторная 6</h1>
+	<p>Z-buffer</p>
+	<center><canvas id="lab6Canvas" width="400" height="400" style="border:2px solid #000000;">
+		<script>
+		(function() {
+			let canvas = document.getElementById("lab6Canvas");	
+			let drawer = new Drawer(canvas);
+
+			drawer.fillColor = "#FF0000";	
+			drawer.polygon3(new Drawer.Point(100, 300, 0), new Drawer.Point(100, 100, 0), new Drawer.Point(300,300, 300));
+
+			drawer.fillColor = "#00FF00";	
+			drawer.polygon3(new Drawer.Point(300, 100, 0),new Drawer.Point(300, 300, 0),new Drawer.Point(100, 300, 300));
+
+			drawer.redraw();
 		})();
 		</script>
 	</canvas></center>
